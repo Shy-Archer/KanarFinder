@@ -129,6 +129,12 @@ class MainActivity : ComponentActivity() {
                     NavHost(navController, startDestination = "main") {
                         composable("main") { KanarFinderApp(navController, stopsListFlow) }
                         composable("form") { FormScreen(navController, database) }
+                        composable("tramDetails/{lineName}") { backStackEntry ->
+                            val lineName = backStackEntry.arguments?.getString("lineName")
+                            lineName?.let {
+                                TramLinePage(navController, it, database)
+                            }
+                        }
                     }
                 }
             }
@@ -215,6 +221,28 @@ fun filterStopsFromLast20Minutes(stops: List<Stop>): List<Stop> {
         } ?: false
     }
 }
+fun getStopsForLine(database: FirebaseDatabase, lineName: String): StateFlow<List<Stop>> {
+    val stopsForLineFlow = MutableStateFlow<List<Stop>>(emptyList())
+    val myRef = database.getReference("stops")
+    myRef.orderByChild("lineNumber").equalTo(lineName).addValueEventListener(object : ValueEventListener {
+        override fun onDataChange(dataSnapshot: DataSnapshot) {
+            val stopsList = mutableListOf<Stop>()
+            for (snapshot in dataSnapshot.children) {
+                val stop = snapshot.getValue(Stop::class.java)
+                if (stop != null) {
+                    stopsList.add(stop)
+                }
+            }
+            stopsForLineFlow.value = stopsList
+        }
+
+        override fun onCancelled(error: DatabaseError) {
+            // Handle error
+        }
+    })
+    return stopsForLineFlow
+}
+
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -239,7 +267,7 @@ fun KanarFinderApp(navController: NavController, stopsListFlow: StateFlow<List<S
             ) {
                 Spacer(modifier = Modifier.height(60.dp))
 
-                TramLinesList(tramStops = tramLines)
+                TramLinesList(tramStops = tramLines,navController)
             }
 
             FloatingActionButton(

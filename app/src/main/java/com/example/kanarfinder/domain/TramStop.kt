@@ -1,3 +1,3 @@
-package com.example.kanarfinder.domain
+    package com.example.kanarfinder.domain
 
-data class TramStop(val id: Int, val lineNumber: String, val topName: String)
+    data class TramStop(val id: Int, val lineNumber: String, val topName: String)
