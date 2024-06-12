@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Divider
@@ -39,6 +40,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +56,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewParameter
+import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.animation.doOnEnd
@@ -63,6 +67,8 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.kanarfinder.data.LocalDatabase
+import com.example.kanarfinder.domain.TramStop
 import com.example.kanarfinder.ui.theme.KanarFinderTheme
 import com.google.firebase.FirebaseApp
 import com.google.firebase.database.ktx.database
@@ -88,7 +94,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this) // Initialize Firebase
 
-        val databaseUrl = "https://kanarfinder-3f4ea-default-rtdb.europe-west1.firebasedatabase.app/"
+        val databaseUrl =
+            "https://kanarfinder-3f4ea-default-rtdb.europe-west1.firebasedatabase.app/"
         val database = Firebase.database(databaseUrl) // Initialize Firebase Database with URL
 
         val splashScreen = installSplashScreen()
@@ -115,15 +122,16 @@ class MainActivity : ComponentActivity() {
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Toast.makeText(applicationContext, "Failed to read data: ${error.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    applicationContext, "Failed to read data: ${error.message}", Toast.LENGTH_SHORT
+                ).show()
             }
         })
 
         setContent {
             KanarFinderTheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
                     NavHost(navController, startDestination = "main") {
@@ -148,74 +156,61 @@ fun FormScreen(navController: NavController, database: FirebaseDatabase) {
     val options = listOf("Option 1", "Option 2", "Option 3")
     val context = LocalContext.current
 
-    Scaffold(
-        topBar = { KanarFinderTopBar() },
-        content = {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                TextField(
-                    value = textField1.value,
-                    onValueChange = { textField1.value = it },
-                    label = { Text("Numer linii") },
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+    Scaffold(topBar = { KanarFinderTopBar() }, content = {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            TextField(value = textField1.value,
+                onValueChange = { textField1.value = it },
+                label = { Text("Numer linii") },
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
 
-                ExposedDropdownMenuBox(
+            ExposedDropdownMenuBox(
+                expanded = expanded.value,
+                onExpandedChange = { expanded.value = it }) {
+                TextField(value = textField2.value,
+                    label = { Text("Nazwa przystanku") },
+                    onValueChange = {},
+                    readOnly = true,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded.value) },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .clickable { expanded.value = !expanded.value })
+                ExposedDropdownMenu(
                     expanded = expanded.value,
-                    onExpandedChange = { expanded.value = it }
-                ) {
-                    TextField(
-                        value = textField2.value,
-                        label = { Text("Nazwa przystanku") },
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded.value) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .clickable { expanded.value = !expanded.value }
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expanded.value,
-                        onDismissRequest = { expanded.value = false }
-                    ) {
-                        options.forEach { item ->
-                            DropdownMenuItem(
-                                text = { Text(text = item) },
-                                onClick = {
-                                    textField2.value = item
-                                    expanded.value = false
-                                    Toast.makeText(context, item, Toast.LENGTH_SHORT).show()
-                                }
-                            )
-                        }
+                    onDismissRequest = { expanded.value = false }) {
+                    options.forEach { item ->
+                        DropdownMenuItem(text = { Text(text = item) }, onClick = {
+                            textField2.value = item
+                            expanded.value = false
+                            Toast.makeText(context, item, Toast.LENGTH_SHORT).show()
+                        })
                     }
                 }
+            }
 
-                Button(onClick = {
-                    val data = HashMap<String, Any>()
-                    data["lineNumber"] = textField1.value
-                    data["stopName"] = textField2.value
-                    data["timestamp"] = ServerValue.TIMESTAMP
+            Button(onClick = {
+                val data = HashMap<String, Any>()
+                data["lineNumber"] = textField1.value
+                data["stopName"] = textField2.value
+                data["timestamp"] = ServerValue.TIMESTAMP
 
-                    myRef.push().setValue(data)
-                        .addOnSuccessListener {
-                            Toast.makeText(context, "Data saved", Toast.LENGTH_SHORT).show()
-                            navController.navigate("main")
-                        }
-                        .addOnFailureListener { e ->
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                        }
-                }) {
-                    Text("Submit")
+                myRef.push().setValue(data).addOnSuccessListener {
+                    Toast.makeText(context, "Data saved", Toast.LENGTH_SHORT).show()
+                    navController.navigate("main")
+                }.addOnFailureListener { e ->
+                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
+            }) {
+                Text("Submit")
             }
         }
-    )
+    })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -228,8 +223,7 @@ fun KanarFinderTopBar() {
                 color = Color.LightGray,
                 fontWeight = FontWeight.ExtraBold,
             )
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
+        }, colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.primary,
             titleContentColor = MaterialTheme.colorScheme.onPrimary
         )
@@ -251,101 +245,41 @@ fun filterStopsFromLast20Minutes(stops: List<Stop>): List<Stop> {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KanarFinderApp(navController: NavController, stopsListFlow: StateFlow<List<Stop>>) {
+    val localDatabase = LocalDatabase.getInstance(LocalContext.current)
+    val knownStops = localDatabase.getTramStops()
+
     val stopsList by stopsListFlow.collectAsState()
     val filteredStopsList = filterStopsFromLast20Minutes(stopsList)
     val textFieldValue = remember { mutableStateOf("") }
-    Scaffold(
-        topBar = { KanarFinderTopBar() },
-        content = {
-            Box(
-                modifier = Modifier.fillMaxSize().fillMaxWidth()
+    Scaffold(topBar = { KanarFinderTopBar() }, content = {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
-                ) {
-                    Spacer(modifier = Modifier.height(60.dp))
+                Spacer(modifier = Modifier.height(60.dp))
 
+                TramStopsList(tramStops = knownStops)
+            }
 
-                    TextField(
-                        value = textFieldValue.value,
-                        onValueChange = { textFieldValue.value = it },
-                        label = { Text("Ulubione przystanki") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp)
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        Button(onClick = { navController.navigate("main") }) {
-                            Text("Submit")
-                        }
-                    }
-
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 16.dp)
-                            .height((LocalContext.current.resources.displayMetrics.heightPixels / 3.5).dp)
-                    ) {
-                        items(filteredStopsList) { stop ->
-                            Column {
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clickable { /* Handle item click */ }
-                                ) {
-                                    Text(
-                                        text = stop.stopName ?: "Unknown",
-                                        modifier = Modifier.padding(10.dp),
-                                        fontSize = 30.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        fontFamily = FontFamily.SansSerif,
-                                    )
-                                    Text(
-                                        text = stop.lineNumber ?: "Unknown",
-                                        fontSize = 24.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        fontFamily = FontFamily.SansSerif,
-                                        color = Color.Gray,
-                                        modifier = Modifier.absoluteOffset(x = 250.dp, y = 15.dp),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                    )
-                                    Text(
-                                        text = stop.getFormattedTimestamp(),
-                                        fontSize = 24.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        fontFamily = FontFamily.SansSerif,
-                                        color = Color.Gray,
-                                        modifier = Modifier.absoluteOffset(x = 10.dp, y = -18.dp),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                    )
-                                }
-                                Divider(
-                                    color = Color.Gray,
-                                    thickness = 1.dp,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        }
-                    }
-                }
-
-                FloatingActionButton(
-                    onClick = { navController.navigate("form") },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp)
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = "Add")
-                }
+            FloatingActionButton(
+                onClick = { navController.navigate("form") },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "Add")
             }
         }
-    )
+    })
 }
+
+
 
 @Preview(showBackground = true)
 @Composable
