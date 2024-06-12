@@ -1,5 +1,6 @@
 package com.example.kanarfinder
 
+import java.util.HashMap
 import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.os.Bundle
@@ -39,8 +40,13 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -58,14 +64,33 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.kanarfinder.ui.theme.KanarFinderTheme
+import com.google.firebase.FirebaseApp
+import com.google.firebase.database.ktx.database
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ServerValue
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
+import java.util.concurrent.TimeUnit
+
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<ViewModelDelay>()
+    private val stopsListFlow = MutableStateFlow<List<Stop>>(emptyList())
 
-    @OptIn(ExperimentalMaterial3Api::class)
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this) // Initialize Firebase
+
+        val databaseUrl = "https://kanarfinder-3f4ea-default-rtdb.europe-west1.firebasedatabase.app/"
+        val database = Firebase.database(databaseUrl) // Initialize Firebase Database with URL
+
         val splashScreen = installSplashScreen()
         splashScreen.setKeepOnScreenCondition { !viewModel.isReady.value }
         splashScreen.setOnExitAnimationListener { splashScreenViewProvider ->
@@ -76,6 +101,24 @@ class MainActivity : ComponentActivity() {
             fadeOut.start()
         }
 
+        val myRef: DatabaseReference = database.getReference("stops")
+        myRef.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(dataSnapshot: DataSnapshot) {
+                val newStopsList = mutableListOf<Stop>()
+                for (snapshot in dataSnapshot.children) {
+                    val stop = snapshot.getValue(Stop::class.java)
+                    if (stop != null) {
+                        newStopsList.add(stop)
+                    }
+                }
+                stopsListFlow.value = newStopsList
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Toast.makeText(applicationContext, "Failed to read data: ${error.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+
         setContent {
             KanarFinderTheme {
                 Surface(
@@ -84,8 +127,8 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
                     NavHost(navController, startDestination = "main") {
-                        composable("main") { KanarFinderApp(navController) }
-                        composable("form") { FormScreen(navController) }
+                        composable("main") { KanarFinderApp(navController, stopsListFlow) }
+                        composable("form") { FormScreen(navController, database) }
                     }
                 }
             }
@@ -96,7 +139,15 @@ class MainActivity : ComponentActivity() {
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FormScreen(navController: NavController) {
+fun FormScreen(navController: NavController, database: FirebaseDatabase) {
+    val myRef: DatabaseReference = database.getReference("stops")
+
+    val textField1 = remember { mutableStateOf("") }
+    val textField2 = remember { mutableStateOf("") }
+    val expanded = remember { mutableStateOf(false) }
+    val options = listOf("Option 1", "Option 2", "Option 3")
+    val context = LocalContext.current
+
     Scaffold(
         topBar = { KanarFinderTopBar() },
         content = {
@@ -107,12 +158,6 @@ fun FormScreen(navController: NavController) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                val textField1 = remember { mutableStateOf("") }
-                val textField2 = remember { mutableStateOf("") }
-                val expanded = remember { mutableStateOf(false) }
-                val options = listOf("Option 1", "Option 2", "Option 3")
-                val context = LocalContext.current
-
                 TextField(
                     value = textField1.value,
                     onValueChange = { textField1.value = it },
@@ -151,7 +196,21 @@ fun FormScreen(navController: NavController) {
                     }
                 }
 
-                Button(onClick = { navController.navigate("main") }) {
+                Button(onClick = {
+                    val data = HashMap<String, Any>()
+                    data["lineNumber"] = textField1.value
+                    data["stopName"] = textField2.value
+                    data["timestamp"] = ServerValue.TIMESTAMP
+
+                    myRef.push().setValue(data)
+                        .addOnSuccessListener {
+                            Toast.makeText(context, "Data saved", Toast.LENGTH_SHORT).show()
+                            navController.navigate("main")
+                        }
+                        .addOnFailureListener { e ->
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                }) {
                     Text("Submit")
                 }
             }
@@ -177,31 +236,42 @@ fun KanarFinderTopBar() {
     )
 }
 
+fun filterStopsFromLast20Minutes(stops: List<Stop>): List<Stop> {
+    val currentTime = System.currentTimeMillis()
+    val twentyMinutesAgo = currentTime - TimeUnit.MINUTES.toMillis(20)
+
+    return stops.filter { stop ->
+        stop.timestamp?.let {
+            it >= twentyMinutesAgo
+        } ?: false
+    }
+}
+
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun KanarFinderApp(navController: NavController) {
-    val items = List(20) { "Item ${it + 1}" }
+fun KanarFinderApp(navController: NavController, stopsListFlow: StateFlow<List<Stop>>) {
+    val stopsList by stopsListFlow.collectAsState()
+    val filteredStopsList = filterStopsFromLast20Minutes(stopsList)
     val textFieldValue = remember { mutableStateOf("") }
-
     Scaffold(
         topBar = { KanarFinderTopBar() },
         content = {
             Box(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(16.dp)
                 ) {
-                    // Spacer to push the TextField down
                     Spacer(modifier = Modifier.height(60.dp))
+
 
                     TextField(
                         value = textFieldValue.value,
                         onValueChange = { textFieldValue.value = it },
-                        label = { Text("Search") },
+                        label = { Text("Ulubione przystanki") },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 16.dp)
@@ -218,47 +288,40 @@ fun KanarFinderApp(navController: NavController) {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(top = 16.dp) // Padding from top to leave space
+                            .padding(top = 16.dp)
                             .height((LocalContext.current.resources.displayMetrics.heightPixels / 3.5).dp)
-
                     ) {
-                        items(items) { item ->
+                        items(filteredStopsList) { stop ->
                             Column {
                                 Card(
                                     modifier = Modifier
                                         .fillMaxSize()
-
                                         .clickable { /* Handle item click */ }
                                 ) {
                                     Text(
-                                        text = item,
+                                        text = stop.stopName ?: "Unknown",
                                         modifier = Modifier.padding(10.dp),
-
                                         fontSize = 30.sp,
                                         fontWeight = FontWeight.Medium,
                                         fontFamily = FontFamily.SansSerif,
-
-
                                     )
                                     Text(
-                                        text = "Subtext",
+                                        text = stop.lineNumber ?: "Unknown",
                                         fontSize = 24.sp,
                                         fontWeight = FontWeight.Medium,
                                         fontFamily = FontFamily.SansSerif,
                                         color = Color.Gray,
                                         modifier = Modifier.absoluteOffset(x = 250.dp, y = 15.dp),
                                         style = MaterialTheme.typography.bodyLarge,
-
                                     )
                                     Text(
-                                        text = "Subtext",
+                                        text = stop.getFormattedTimestamp(),
                                         fontSize = 24.sp,
                                         fontWeight = FontWeight.Medium,
                                         fontFamily = FontFamily.SansSerif,
                                         color = Color.Gray,
                                         modifier = Modifier.absoluteOffset(x = 10.dp, y = -18.dp),
                                         style = MaterialTheme.typography.bodyLarge,
-
                                     )
                                 }
                                 Divider(
@@ -284,12 +347,11 @@ fun KanarFinderApp(navController: NavController) {
     )
 }
 
-
 @Preview(showBackground = true)
 @Composable
 fun DefaultPreview() {
     KanarFinderTheme {
         val navController = rememberNavController()
-        KanarFinderApp(navController)
+        // KanarFinderApp(navController)
     }
 }

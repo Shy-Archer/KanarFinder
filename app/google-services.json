@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "987575207991",
+    "project_id": "kanarfinder-3f4ea",
+    "storage_bucket": "kanarfinder-3f4ea.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:987575207991:android:9b6a8acb742ff927e357b2",
+        "android_client_info": {
+          "package_name": "com.example.kanarfinder"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAV3dPwwx8IMUFmN_JDmr2kuHDMj1Zh6gs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
