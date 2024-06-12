@@ -59,6 +59,11 @@ class LocalDatabase(context: Context?) :
         )
     }
 
+    fun nukeData() {
+        writableDatabase.execSQL("delete from tram_stops;")
+        writableDatabase.execSQL("delete from user_starred_stops;")
+    }
+
     fun isStarred(tramStop: TramStop): Boolean {
         val cursor = readableDatabase.rawQuery(
             """

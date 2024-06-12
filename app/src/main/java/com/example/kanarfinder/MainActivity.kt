@@ -213,23 +213,6 @@ fun FormScreen(navController: NavController, database: FirebaseDatabase) {
     })
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun KanarFinderTopBar() {
-    TopAppBar(
-        title = {
-            Text(
-                text = "KanarFinder",
-                color = Color.LightGray,
-                fontWeight = FontWeight.ExtraBold,
-            )
-        }, colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            titleContentColor = MaterialTheme.colorScheme.onPrimary
-        )
-    )
-}
-
 fun filterStopsFromLast20Minutes(stops: List<Stop>): List<Stop> {
     val currentTime = System.currentTimeMillis()
     val twentyMinutesAgo = currentTime - TimeUnit.MINUTES.toMillis(20)
