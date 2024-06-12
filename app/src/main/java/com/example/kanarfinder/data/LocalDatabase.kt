@@ -90,7 +90,10 @@ class LocalDatabase(context: Context?) :
     fun getTramStops(): List<TramStop> {
         val cursor = readableDatabase.rawQuery(
             """
-                select id, line_number, stop_name from tram_stops
+                select ts.id, line_number, stop_name
+                from tram_stops ts
+                left join user_starred_stops uss on ts.id = uss.tram_stop_fk
+                order by case when uss.id is not null then 0 else 1 end, ts.line_number;
             """.trimIndent(), null
         )
         val stops = mutableListOf<TramStop>()
