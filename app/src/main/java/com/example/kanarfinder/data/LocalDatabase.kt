@@ -27,9 +27,9 @@ class LocalDatabase(context: Context?) :
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             """
-              create table if not exists user_starred_stops (
+              create table if not exists user_starred_lines (
                   id integer primary key autoincrement,
-                  tram_stop_fk references tram_stops(id) not null
+                  tram_line_fk references tram_stops(line_number) not null
               );
            """.trimIndent()
         )
@@ -49,25 +49,25 @@ class LocalDatabase(context: Context?) :
             """
             insert into tram_stops (line_number, stop_name)
             values ('5', 'Poznań Główny'),
-                    ('5', "Most Rocha"),
-                    ("5", "Plac Bernardyński"),
-                    ("6", "Rondo Rataje"),
-                    ("18", "Szwedzka"),
-                    ("13", "Stadion Miejski")
+                    ('5', 'Most Rocha'),
+                    ('5', 'Plac Bernardyński'),
+                    ('6', 'Rondo Rataje'),
+                    ('18', 'Szwedzka'),
+                    ('13', 'Stadion Miejski')
                     ;
         """.trimIndent()
         )
     }
 
     fun nukeData() {
-        writableDatabase.execSQL("delete from tram_stops;")
-        writableDatabase.execSQL("delete from user_starred_stops;")
+        writableDatabase.execSQL("drop table if exists user_starred_lines;")
+        writableDatabase.execSQL("drop table if exists tram_stops;")
     }
 
-    fun isStarred(tramStop: TramStop): Boolean {
+    fun isStarred(lineName: String): Boolean {
         val cursor = readableDatabase.rawQuery(
             """
-                select count(*) from user_starred_stops where tram_stop_fk = '${tramStop.id}'
+                select count(*) from user_starred_lines where tram_line_fk = '${lineName}'
             """.trimIndent(), null
         )
         cursor.moveToFirst()
@@ -76,18 +76,18 @@ class LocalDatabase(context: Context?) :
         return count > 0
     }
 
-    fun insertStarredStop(tramStop: TramStop) {
+    fun insertStarredStop(lineName: String) {
         writableDatabase.execSQL(
             """
-                insert into user_starred_stops (tram_stop_fk) values ('${tramStop.id}')
+                insert into user_starred_lines (tram_line_fk) values ('${lineName}')
             """.trimIndent()
         )
     }
 
-    fun deleteStarredStop(tramStop: TramStop) {
+    fun deleteStarredStop(lineName: String) {
         writableDatabase.execSQL(
             """
-                delete from user_starred_stops where tram_stop_fk = '${tramStop.id}'
+                delete from user_starred_lines where tram_line_fk = '${lineName}'
             """.trimIndent()
         )
     }
@@ -96,9 +96,7 @@ class LocalDatabase(context: Context?) :
         val cursor = readableDatabase.rawQuery(
             """
                 select ts.id, line_number, stop_name
-                from tram_stops ts
-                left join user_starred_stops uss on ts.id = uss.tram_stop_fk
-                order by case when uss.id is not null then 0 else 1 end, ts.line_number;
+                from tram_stops ts;
             """.trimIndent(), null
         )
         val stops = mutableListOf<TramStop>()
@@ -111,6 +109,21 @@ class LocalDatabase(context: Context?) :
         }
         cursor.close()
         return stops
+    }
+
+    fun getTramLines(): List<String> {
+        val cursor = readableDatabase.rawQuery(
+            """
+                select distinct line_number from tram_stops
+                order by cast(line_number as integer);
+            """.trimIndent(), null
+        )
+        val lines = mutableListOf<String>()
+        while (cursor.moveToNext()) {
+            lines.add(cursor.getString(0))
+        }
+        cursor.close()
+        return lines
     }
 
     override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {

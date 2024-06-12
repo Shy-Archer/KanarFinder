@@ -229,7 +229,7 @@ fun filterStopsFromLast20Minutes(stops: List<Stop>): List<Stop> {
 @Composable
 fun KanarFinderApp(navController: NavController, stopsListFlow: StateFlow<List<Stop>>) {
     val localDatabase = LocalDatabase.getInstance(LocalContext.current)
-    val knownStops = localDatabase.getTramStops()
+    val tramLines = localDatabase.getTramLines()
 
     val stopsList by stopsListFlow.collectAsState()
     val filteredStopsList = filterStopsFromLast20Minutes(stopsList)
@@ -247,7 +247,7 @@ fun KanarFinderApp(navController: NavController, stopsListFlow: StateFlow<List<S
             ) {
                 Spacer(modifier = Modifier.height(60.dp))
 
-                TramStopsList(tramStops = knownStops)
+                TramLinesList(tramStops = tramLines)
             }
 
             FloatingActionButton(

@@ -2,7 +2,6 @@ package com.example.kanarfinder
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,7 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -31,30 +29,30 @@ import com.example.kanarfinder.data.LocalDatabase
 import com.example.kanarfinder.domain.TramStop
 
 @Composable
-fun TramStopsList(tramStops: List<TramStop>) {
+fun TramLinesList(tramStops: List<String>) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items(tramStops) { tramStop ->
-            TramStopListItem(tramStop)
+            TramListListItem(tramStop)
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TramStopListItem(
-    tramStop: TramStop,
+fun TramListListItem(
+    lineName: String
 ) {
     val dbContext = LocalDatabase.getInstance(LocalContext.current)
     var isStarred by rememberSaveable {
-        mutableStateOf(dbContext.isStarred(tramStop))
+        mutableStateOf(dbContext.isStarred(lineName))
     }
 
     val handleStarClick = {
         isStarred = !isStarred
         if (isStarred) {
-            dbContext.insertStarredStop(tramStop)
+            dbContext.insertStarredStop(lineName)
         } else {
-            dbContext.deleteStarredStop(tramStop)
+            dbContext.deleteStarredStop(lineName)
         }
     }
 
@@ -63,11 +61,11 @@ fun TramStopListItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text(text = "Linia: ${tramStop.lineNumber}", fontWeight = FontWeight.Bold)
-                Text(text = "Przystanek: ${tramStop.topName}")
+                Text(text = "Linia: $lineName", fontWeight = FontWeight.Bold)
             }
             IconButton(onClick = handleStarClick) {
                 val icon = if (isStarred) {
