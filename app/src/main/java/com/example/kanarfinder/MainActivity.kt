@@ -99,14 +99,6 @@ class MainActivity : ComponentActivity() {
         val database = Firebase.database(databaseUrl) // Initialize Firebase Database with URL
 
         val splashScreen = installSplashScreen()
-        splashScreen.setKeepOnScreenCondition { !viewModel.isReady.value }
-        splashScreen.setOnExitAnimationListener { splashScreenViewProvider ->
-            val iconView = splashScreenViewProvider.iconView
-            val fadeOut = ObjectAnimator.ofFloat(iconView, "alpha", 1f, 0f)
-            fadeOut.duration = 1000
-            fadeOut.doOnEnd { splashScreenViewProvider.remove() }
-            fadeOut.start()
-        }
 
         val myRef: DatabaseReference = database.getReference("stops")
         myRef.addValueEventListener(object : ValueEventListener {
