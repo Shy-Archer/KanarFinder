@@ -51,10 +51,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
@@ -146,70 +149,127 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FormScreen(navController: NavController, database: FirebaseDatabase) {
-    val myRef: DatabaseReference = database.getReference("stops")
-
-    val textField1 = remember { mutableStateOf("") }
-    val textField2 = remember { mutableStateOf("") }
-    val expanded = remember { mutableStateOf(false) }
-    val options = listOf("Option 1", "Option 2", "Option 3")
+    val localDatabase = LocalDatabase.getInstance(LocalContext.current)
     val context = LocalContext.current
 
-    Scaffold(topBar = { KanarFinderTopBar() }, content = {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            TextField(value = textField1.value,
-                onValueChange = { textField1.value = it },
-                label = { Text("Numer linii") },
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+    val tramLines = remember { mutableStateOf(listOf<String>()) }
+    val stopNames = remember { mutableStateOf(listOf<String>()) }
+    val selectedLine = remember { mutableStateOf("") }
+    val selectedStop = remember { mutableStateOf("") }
+    val lineDropdownExpanded = remember { mutableStateOf(false) }
+    val stopDropdownExpanded = remember { mutableStateOf(false) }
 
-            ExposedDropdownMenuBox(
-                expanded = expanded.value,
-                onExpandedChange = { expanded.value = it }) {
-                TextField(value = textField2.value,
-                    label = { Text("Nazwa przystanku") },
-                    onValueChange = {},
-                    readOnly = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded.value) },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .clickable { expanded.value = !expanded.value })
-                ExposedDropdownMenu(
-                    expanded = expanded.value,
-                    onDismissRequest = { expanded.value = false }) {
-                    options.forEach { item ->
-                        DropdownMenuItem(text = { Text(text = item) }, onClick = {
-                            textField2.value = item
-                            expanded.value = false
-                            Toast.makeText(context, item, Toast.LENGTH_SHORT).show()
-                        })
+    LaunchedEffect(Unit) {
+        tramLines.value = localDatabase.getTramLines()
+    }
+
+    Scaffold(
+        topBar = { KanarFinderTopBar() },
+        content = {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                ExposedDropdownMenuBox(
+                    expanded = lineDropdownExpanded.value,
+                    onExpandedChange = { lineDropdownExpanded.value = it }
+                ) {
+                    TextField(
+                        value = selectedLine.value,
+                        onValueChange = {},
+                        label = { Text("Numer linii") },
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = lineDropdownExpanded.value) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .clickable {
+                                lineDropdownExpanded.value = !lineDropdownExpanded.value
+                            }
+                    )
+                    ExposedDropdownMenu(
+                        expanded = lineDropdownExpanded.value,
+                        onDismissRequest = { lineDropdownExpanded.value = false }
+                    ) {
+                        tramLines.value.forEach { line ->
+                            DropdownMenuItem(
+                                text = { Text(text = line) },
+                                onClick = {
+                                    selectedLine.value = line
+                                    lineDropdownExpanded.value = false
+                                    // Update stop names when a new line is selected
+                                    val stops = localDatabase.getStopNamesForLine(line)
+                                    stopNames.value = stops.distinct() // Remove duplicates
+                                    selectedStop.value = "" // Reset selected stop
+                                }
+                            )
+                        }
                     }
                 }
-            }
 
-            Button(onClick = {
-                val data = HashMap<String, Any>()
-                data["lineNumber"] = textField1.value
-                data["stopName"] = textField2.value
-                data["timestamp"] = ServerValue.TIMESTAMP
+                Spacer(modifier = Modifier.height(8.dp))
 
-                myRef.push().setValue(data).addOnSuccessListener {
-                    Toast.makeText(context, "Data saved", Toast.LENGTH_SHORT).show()
-                    navController.navigate("main")
-                }.addOnFailureListener { e ->
-                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                ExposedDropdownMenuBox(
+                    expanded = stopDropdownExpanded.value,
+                    onExpandedChange = { stopDropdownExpanded.value = it }
+                ) {
+                    TextField(
+                        value = selectedStop.value,
+                        onValueChange = {},
+                        label = { Text("Nazwa przystanku") },
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = stopDropdownExpanded.value) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .clickable {
+                                stopDropdownExpanded.value = !stopDropdownExpanded.value
+                            }
+                    )
+                    ExposedDropdownMenu(
+                        expanded = stopDropdownExpanded.value,
+                        onDismissRequest = { stopDropdownExpanded.value = false }
+                    ) {
+                        stopNames.value.forEach { stop ->
+                            DropdownMenuItem(
+                                text = { Text(text = stop) },
+                                onClick = {
+                                    selectedStop.value = stop
+                                    stopDropdownExpanded.value = false
+                                }
+                            )
+                        }
+                    }
                 }
-            }) {
-                Text("Submit")
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(onClick = {
+                    val data = hashMapOf<String, Any>(
+                        "lineNumber" to selectedLine.value,
+                        "stopName" to selectedStop.value,
+                        "timestamp" to ServerValue.TIMESTAMP
+                    )
+
+                    database.getReference("stops").push().setValue(data)
+                        .addOnSuccessListener {
+                            Toast.makeText(context, "Data saved", Toast.LENGTH_SHORT).show()
+                            navController.navigate("main")
+                        }
+                        .addOnFailureListener { e ->
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                }) {
+                    Text("Submit")
+                }
             }
         }
-    })
+    )
 }
+
+
+
 
 fun filterStopsFromLast20Minutes(stops: List<Stop>): List<Stop> {
     val currentTime = System.currentTimeMillis()
