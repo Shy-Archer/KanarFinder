@@ -36,7 +36,7 @@ import androidx.navigation.NavController
 import com.example.kanarfinder.data.LocalDatabase
 import com.example.kanarfinder.domain.TramStop
 import com.google.firebase.database.FirebaseDatabase
-
+import java.util.concurrent.TimeUnit
 @Composable
 fun TramLinesList(tramStops: List<String>,navController: NavController) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -89,12 +89,21 @@ fun TramListListItem(
     }
 }
 
+
+
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TramLinePage(navController: NavController, lineName: String, database: FirebaseDatabase) {
     val stopsForLineFlow = getStopsForLine(database, lineName)
     val stopsForLine by stopsForLineFlow.collectAsState()
+
+    // Filtrowanie przystanków z ostatnich 30 minut
+    val filteredStopsForLine = stopsForLine.filter {
+        val currentTime = System.currentTimeMillis()
+        val thirtyMinutesAgo = currentTime - TimeUnit.MINUTES.toMillis(30)
+        it.timestamp?.let { timestamp -> timestamp >= thirtyMinutesAgo } ?: false
+    }
 
     Scaffold(
         topBar = {
@@ -118,7 +127,7 @@ fun TramLinePage(navController: NavController, lineName: String, database: Fireb
                     .padding(paddingValues)
                     .padding(horizontal = 16.dp)
             ) {
-                items(stopsForLine) { stop ->
+                items(filteredStopsForLine) { stop ->
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(text = "Przystanek: ${stop.stopName}")
