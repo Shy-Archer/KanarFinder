@@ -144,31 +144,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-@Composable
-fun ReadonlyTextField(
-    value: TextFieldValue,
-    onValueChange: (TextFieldValue) -> Unit,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-    label: @Composable () -> Unit
-) {
 
-    Box {
-        TextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = modifier,
-            label = label
-        )
-
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .alpha(0f)
-                .clickable(onClick = onClick),
-        )
-    }
-}
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -182,8 +158,6 @@ fun FormScreen(navController: NavController, database: FirebaseDatabase) {
     val selectedStop = remember { mutableStateOf("") }
     val lineDropdownExpanded = remember { mutableStateOf(false) }
     val stopDropdownExpanded = remember { mutableStateOf(false) }
-
-    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(Unit) {
         tramLines.value = localDatabase.getTramLines()
@@ -212,7 +186,6 @@ fun FormScreen(navController: NavController, database: FirebaseDatabase) {
                         modifier = Modifier
                             .menuAnchor()
                             .clickable {
-                                focusManager.clearFocus()
                                 lineDropdownExpanded.value = !lineDropdownExpanded.value
                             }
                     )
@@ -251,7 +224,6 @@ fun FormScreen(navController: NavController, database: FirebaseDatabase) {
                         modifier = Modifier
                             .menuAnchor()
                             .clickable {
-                                focusManager.clearFocus()
                                 stopDropdownExpanded.value = !stopDropdownExpanded.value
                             }
                     )
@@ -295,7 +267,6 @@ fun FormScreen(navController: NavController, database: FirebaseDatabase) {
         }
     )
 }
-
 
 
 
