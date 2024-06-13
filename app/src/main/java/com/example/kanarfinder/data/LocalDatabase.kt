@@ -23,7 +23,19 @@ class LocalDatabase(context: Context?) :
         }
     }
 
-
+    fun getStopNamesForLine(lineNumber: String): List<String> {
+        val cursor = readableDatabase.rawQuery(
+            """
+            select stop_name from tram_stops where line_number = ?
+        """.trimIndent(), arrayOf(lineNumber)
+        )
+        val stops = mutableListOf<String>()
+        while (cursor.moveToNext()) {
+            stops.add(cursor.getString(0))
+        }
+        cursor.close()
+        return stops
+    }
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             """
@@ -128,5 +140,28 @@ class LocalDatabase(context: Context?) :
 
     override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
         // no-op
+    }
+    fun getTramStopNamesForLineNumber(lineNumber: String): List<String> {
+        val stops = mutableListOf<String>()
+        val db = readableDatabase
+        val query = "select stop_name from tram_stops where line_number = ?"
+        val cursor = db.rawQuery(query, arrayOf(lineNumber))
+        while (cursor.moveToNext()) {
+            stops.add(cursor.getString(0))
+        }
+        cursor.close()
+        return stops
+    }
+
+    fun getAllTramLines(): List<String> {
+        val lines = mutableListOf<String>()
+        val db = readableDatabase
+        val query = "select distinct line_number from tram_stops order by cast(line_number as integer)"
+        val cursor = db.rawQuery(query, null)
+        while (cursor.moveToNext()) {
+            lines.add(cursor.getString(0))
+        }
+        cursor.close()
+        return lines
     }
 }
