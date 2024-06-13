@@ -111,7 +111,7 @@ fun TramLinePage(navController: NavController, lineName: String, database: Fireb
                 title = { Text("Zgłoszenia dla Linii $lineName") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
